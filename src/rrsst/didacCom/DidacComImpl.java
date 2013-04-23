@@ -302,8 +302,8 @@ public class DidacComImpl implements IDidacCom
             }
             boolean result; //Devolverá true si todo es correcto
             //Dividir 
-            byte[] secuenciaData= Arrays.copyOfRange(secuencia, 0, longitud-16);
-            byte[] secuenciaHash= Arrays.copyOfRange (secuencia, longitud-16, longitud);
+            byte[] secuenciaData= Arrays.copyOfRange(secuencia, 0, longitud-GestorHash.LONG_HASH);
+            byte[] secuenciaHash= Arrays.copyOfRange (secuencia, longitud-GestorHash.LONG_HASH, longitud);
             result = GestorHash.validarHash(secuenciaData, secuenciaHash);
                         
             return result;
