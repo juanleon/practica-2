@@ -27,7 +27,7 @@ import rrsst.didacCom.IDUDidacCom.*;
 public class DidacComImpl implements IDidacCom 
 {
     private DatagramSocket canal = null;
-  
+	
     /**
     * Longitud minima en bytes de una PDU.
     */

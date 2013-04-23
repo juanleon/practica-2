@@ -24,7 +24,7 @@ public class ClienteUDP
     public static final int PACKAGELENGTH = 20;
     
     public static DidacComImpl didac;
-  
+	
     /**
      * &nbsp;&nbsp;&nbsp;La estaci&#243n <b>cliente A</b> enviar&#225 un mensaje 
      * <b>message</b> con una longitud m&#225xima de <i>20 bytes</i>.<br>
