@@ -81,7 +81,8 @@ public class DidacComImpl implements IDidacCom
         byte lengthData;//Longitud del campo datos del usuario
         try{
             byte[] PDUControl= new byte [MIN_LONG_PDU];
-            byte[] PDUData= null;
+            byte[] PDUData;
+            
             if (canal== null)
             {
                 throw new ExcepcionDidacCom("No se ha abierto el canal");   
@@ -90,55 +91,59 @@ public class DidacComImpl implements IDidacCom
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             DataOutputStream DataOut = new DataOutputStream(baos);
             
-            do{
-                tries++;
-                //Extraer datos de la IDU recibida
-                int port = idu.getPuertoUDP();      //Puerto contenido en la IDU
-                byte[] datos = idu.getDatos();      //Byte de datos  en la IDU
-                int longDatos = idu.getLongDatos(); //Longuitud de los datos
-                String IP = idu.getDirIP();         //String IP en la IDU
+            //Abrir un stream para leer info en PDUControl más adelante  
+            ByteArrayInputStream bais = new ByteArrayInputStream(PDUControl);
+            DataInputStream DataIn = new DataInputStream(bais);
             
-                /*Primer paso, crear una PDU de datos. Su estructura es la 
-                 * siguiente:
-                 * _____________________________________
-                 * |Tipo PDU|Long.Datos |Datos |  MD5  |
-                 * |  0x00  |  1 byte   |0-20B | 16 B  |
-                 * -------------------------------------
-                */
-                DataOut.write(PDU_DATOS);       //Primer campo (0x00)
-                DataOut.write(longDatos);       //Segundo campo
-                DataOut.write(datos);           //Campo de datos
-                //Se copia a PDUData
-                PDUData = baos.toByteArray();
-                /*El Hash se calculará para todos los campos serializados de la 
-                PDU, a la ver que se copia en el Stream DataOut.
-                */
-                DataOut.write (GestorHash.generarHash(PDUData));
-                //Se copia a PDUData
-                PDUData = baos.toByteArray();
-                
-                //Se crea un datagrma que envíe la PDU de datos PDUData
-                DatagramPacket datagrama = new DatagramPacket(PDUData, 
-                            PDUData.length, InetAddress.getByName(IP), port);
-                canal.send(datagrama);  //Envío del datagrama con PDUData
-                
-                /*Segundo paso, crear una PDU de control. Su estructura es la 
-                 * siguiente:
-                 * _____________________________________
-                 * |Tipo PDU|Long.Datos | Datos |  MD5  |
-                 * |0xFF/FE |   0x00    |0 bytes| 16 B  |
-                 * -------------------------------------
-                 * Dicha PDUControl se usará para recibir el ACK/NACK de la 
-                 * entidad par.
-                */
-                //Se crea un datagrama que reciba dicha confirmación
-                DatagramPacket ControlDatagram = new DatagramPacket(PDUControl,
+            tries++;     //Número de reintentos
+            //Extraer datos de la IDU recibida
+            int port = idu.getPuertoUDP();      //Puerto contenido en la IDU
+            int longDatos = idu.getLongDatos(); //Longuitud de los datos
+            //Byte de datos  en la IDU
+            byte[] datos = Arrays.copyOfRange(idu.getDatos(),0,longDatos);
+            String IP = idu.getDirIP();         //String IP en la IDU
+            
+            /*Primer paso, crear una PDU de datos. Su estructura es la 
+            * siguiente:
+            * _____________________________________
+            * |Tipo PDU|Long.Datos |Datos |  MD5  |
+            * |  0x00  |  1 byte   |0-20B | 16 B  |
+            * -------------------------------------
+            */
+            DataOut.write(PDU_DATOS);       //Primer campo (0x00)
+            DataOut.write(longDatos);       //Segundo campo
+            DataOut.write(datos);           //Campo de datos
+            //Se copia a PDUData
+            PDUData = baos.toByteArray();
+            /*El Hash se calculará para todos los campos serializados de la 
+            PDU, a la ver que se copia en el Stream DataOut.*/
+            DataOut.write (GestorHash.generarHash(PDUData));
+            //Se copia a PDUData
+            PDUData = baos.toByteArray();
+            
+            //Se crea un datagrama que enviará la PDU de datos PDUData
+            DatagramPacket datagrama = new DatagramPacket(PDUData, 
+                    PDUData.length, InetAddress.getByName(IP), port);
+            
+            /*Segundo paso, crear una PDU de control. Su estructura es la 
+             * siguiente:
+             * _____________________________________
+             * |Tipo PDU|Long.Datos | Datos |  MD5  |
+             * |0xFF/FE |   0x00    |0 bytes| 16 B  |
+             * -------------------------------------
+             * Dicha PDUControl se usará para recibir el ACK/NACK de la 
+             * entidad par.
+            */
+            //Se crea un datagrama que reciba dicha confirmación
+            DatagramPacket ControlDatagram = new DatagramPacket(PDUControl,
                                                                   MIN_LONG_PDU);
-                canal.receive(ControlDatagram);
-                //Abrir un stream para leer info en PDUControl más adelante  
-                ByteArrayInputStream bais = new ByteArrayInputStream(PDUControl);
-                DataInputStream DataIn = new DataInputStream(bais);
-                //Si el hash no es correcto    
+            
+            //Se enviará y reenviará si la recepción no es correcta
+            do{      
+                canal.send(datagrama);         //Envío del datagrama con PDUData
+                canal.receive(ControlDatagram); //Recibo del datagrama PDUControl
+
+                //Si el hash de no es correcto    
 		if (!comprobarHash(PDUControl, MIN_LONG_PDU)) 
                     throw new ExcepcionDidacCom ("Intento "+tries+" Hash de la "
                             + "PDU de control incorrecto");
@@ -146,19 +151,21 @@ public class DidacComImpl implements IDidacCom
                 {
                     PDUType= DataIn.readByte();        //Copia el tipo de PDU
                     lengthData= DataIn.readByte();     //Copia la long. de datos
-                    if ((PDUType!= PDU_NACK)||(PDUType!= PDU_ACK))
+                    
+                    if ((PDUType!= PDU_NACK)&&(PDUType!= PDU_ACK)) 
                     {
                         throw new ExcepcionDidacCom ("Intento "+tries+". El "
                                 + "campo de confirmacion tiene un valor "
                                 + "desconocido ["+PDUType+"]");
+                    }else{
+                        if(lengthData!= PDU_DATOS) //Valor a tener en PDUControl
+                            throw new ExcepcionDidacCom("Intento "+tries+". El "
+                                    + "valor del campo longitud de datos, no es"
+                                    + " correcto");
                     }
-                    if(lengthData != 0x00)//Valor que debe de tener en PDUControl
-            		throw new ExcepcionDidacCom("Intento "+tries+". El "
-                                + "valor del campo longitud de datos, no es "
-                                + "correcto");
                 }
                 
-                }while ((tries<=N_REINTENTOS) && (PDUType == PDU_NACK));
+            }while ((tries< N_REINTENTOS) && (PDUType == PDU_NACK));
         
         }catch(IOException e) 
         {
