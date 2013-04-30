@@ -92,7 +92,7 @@ public class DidacComImpl implements IDidacCom
             DataOutputStream DataOut = new DataOutputStream(baos);
             
             //Abrir un stream para leer info en PDUControl más adelante  
-            ByteArrayInputStream bais = new ByteArrayInputStream(PDUControl);
+            ByteArrayInputStream bais = null;
             DataInputStream DataIn = new DataInputStream(bais);
             
             tries++;     //Número de reintentos
@@ -149,6 +149,7 @@ public class DidacComImpl implements IDidacCom
                             + "PDU de control incorrecto");
                 else //Si lo es
                 {
+                    ByteArrayInputStream bais = new ByteArrayInputStream(PDUControl);
                     PDUType= DataIn.readByte();        //Copia el tipo de PDU
                     lengthData= DataIn.readByte();     //Copia la long. de datos
                     
