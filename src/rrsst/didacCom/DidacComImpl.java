@@ -143,7 +143,7 @@ public class DidacComImpl implements IDidacCom
                 canal.send(datagrama);         //Envío del datagrama con PDUData
                 canal.receive(ControlDatagram); //Recibo del datagrama PDUControl
 		//Si el tamaño de la PDUControl es distinto a MIN_LOG_PDU
-		if(Controldatagrama.length()!=MIN_LONG_PDU)
+		if(ControlDatagram.getLength!=MIN_LONG_PDU)
 		{
 			throw new ExcepcionDidacCom ("");
 		}else{
@@ -152,7 +152,7 @@ public class DidacComImpl implements IDidacCom
                     	throw new ExcepcionDidacCom ("Intento "+tries+" Hash de la "
                             	+ "PDU de control incorrecto");
                 	else{ //Si lo es
-                    		ByteArrayInputStream bais = new ByteArrayInputStream(PDUControl);
+                    		 bais = new ByteArrayInputStream(PDUControl);
                     		PDUType= DataIn.readByte();        //Copia el tipo de PDU
                     		lengthData= DataIn.readByte();     //Copia la long. de datos
                     
