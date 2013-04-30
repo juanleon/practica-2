@@ -112,7 +112,7 @@ public class DidacComImpl implements IDidacCom
             */
             DataOut.write(PDU_DATOS);       //Primer campo (0x00)
             DataOut.write(longDatos);       //Segundo campo
-            DataOut.write(datos);           //Campo de datos
+            DataOut.write(datos, 0, longDatos);           //Campo de datos
             //Se copia a PDUData
             PDUData = baos.toByteArray();
             /*El Hash se calculará para todos los campos serializados de la 
@@ -142,31 +142,41 @@ public class DidacComImpl implements IDidacCom
             do{      
                 canal.send(datagrama);         //Envío del datagrama con PDUData
                 canal.receive(ControlDatagram); //Recibo del datagrama PDUControl
-
-                //Si el hash de no es correcto    
-		if (!comprobarHash(PDUControl, MIN_LONG_PDU)) 
-                    throw new ExcepcionDidacCom ("Intento "+tries+" Hash de la "
-                            + "PDU de control incorrecto");
-                else //Si lo es
-                {
-                    ByteArrayInputStream bais = new ByteArrayInputStream(PDUControl);
-                    PDUType= DataIn.readByte();        //Copia el tipo de PDU
-                    lengthData= DataIn.readByte();     //Copia la long. de datos
+		//Si el tamaño de la PDUControl es distinto a MIN_LOG_PDU
+		if(Controldatagrama.length()!=MIN_LONG_PDU)
+		{
+			throw new ExcepcionDidacCom ("");
+		}else{
+                	//Si el hash de no es correcto    
+			if (!comprobarHash(PDUControl, MIN_LONG_PDU)) 
+                    	throw new ExcepcionDidacCom ("Intento "+tries+" Hash de la "
+                            	+ "PDU de control incorrecto");
+                	else{ //Si lo es
+                    		ByteArrayInputStream bais = new ByteArrayInputStream(PDUControl);
+                    		PDUType= DataIn.readByte();        //Copia el tipo de PDU
+                    		lengthData= DataIn.readByte();     //Copia la long. de datos
                     
-                    if ((PDUType!= PDU_NACK)&&(PDUType!= PDU_ACK)) 
-                    {
-                        throw new ExcepcionDidacCom ("Intento "+tries+". El "
+                    		if ((PDUType!= PDU_NACK)&&(PDUType!= PDU_ACK)) 
+                    		{
+                        	throw new ExcepcionDidacCom ("Intento "+tries+". El "
                                 + "campo de confirmacion tiene un valor "
                                 + "desconocido ["+PDUType+"]");
-                    }else{
-                        if(lengthData!= PDU_DATOS) //Valor a tener en PDUControl
-                            throw new ExcepcionDidacCom("Intento "+tries+". El "
-                                    + "valor del campo longitud de datos, no es"
-                                    + " correcto");
-                    }
-                }
+                    		}else{
+                        	if(lengthData!= PDU_DATOS) //Valor a tener en PDUControl
+                            	throw new ExcepcionDidacCom("Intento "+tries+". El "
+                                    	+ "valor del campo longitud de datos, no es"
+                                    	+ " correcto");
+                    		}
+                   	 	if((tries > N_REINTENTOS) && (PDUType == PDU_NACK))
+		    		{
+		    			throw new ExcepcionDidacCom("Intento "+tries+". Numero limite de" +
+							"retransmisiones alcanzado");
+		    		}
+                	}
+                	
+                	}
                 
-            }while ((tries< N_REINTENTOS) && (PDUType == PDU_NACK));
+            }while ((tries<= N_REINTENTOS) && (PDUType == PDU_NACK));
         
         }catch(IOException e) 
         {
